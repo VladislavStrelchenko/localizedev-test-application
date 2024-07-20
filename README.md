@@ -20,7 +20,7 @@ This project includes a Docker registry on DigitalOcean (DO) Container Registry,
 ### Initial Setup
 1. Create Container Registry and DO App. 
 * Follow instructions in `.terraform/README.md`.
-* 
+
 2. Setup CircleCI Project.
 * Connect the repository to a CircleCI project. Follow the instructions at CircleCI Create Project. https://circleci.com/docs/create-project/
 
