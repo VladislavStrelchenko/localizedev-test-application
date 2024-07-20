@@ -1,0 +1,87 @@
+version: 2.1
+
+jobs:
+  build-test-publish:
+    docker:
+      - image: cimg/base:2022.09
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Set environment variables
+          command: |
+            echo 'export IMAGE_NAME="${IMAGE_NAME:-test-application}"' >> $BASH_ENV
+            echo 'export IMAGE="$REGISTRY_URL/$IMAGE_NAME"' >> $BASH_ENV
+      - run:
+          name: Build docker image
+          command: |
+            source $BASH_ENV
+                     
+            # Build Docker image
+            docker build -t $IMAGE:${CIRCLE_SHA1} -t $IMAGE:latest .
+      - run:
+          name: Test docker image
+          command: |
+            source $BASH_ENV
+            
+            # Run the container in detached mode
+            docker run -d --name test-container $IMAGE:${CIRCLE_SHA1}
+            sleep 5
+            
+            # Check the health endpoint using wget inside the container
+            docker exec test-container sh -c "wget -q -O - http://localhost:3000/healthcheck -S 2>&1" > healthcheck_output.txt
+            
+            # Extract the response code and body from the output
+            RESPONSE_CODE=$(grep "HTTP/" healthcheck_output.txt | awk '{print $2}')
+            RESPONSE_BODY=$(tail -n 1 healthcheck_output.txt)
+            
+            # Save the results to a file
+            mkdir -p artifacts
+            echo "HTTP Status Code: $RESPONSE_CODE" > artifacts/healthcheck_result.txt
+            echo "Response Body: $RESPONSE_BODY" >> artifacts/healthcheck_result.txt
+            
+            if [ "$RESPONSE_CODE" -eq 200 ]; then
+              echo "Healthcheck passed"
+            else
+              echo "Healthcheck failed"
+              docker logs test-container
+              docker stop test-container
+              docker rm test-container
+              exit 1
+            fi
+            
+            # Stop and remove the container after the test
+            docker stop test-container
+            docker rm test-container
+      - store_artifacts:
+          path: artifacts
+          destination: healthcheck_results
+      - run:
+          name: Publish docker image
+          command: |
+            source $BASH_ENV
+            
+            # Login to the Docker registry
+            echo $DOCKER_PASSWORD | docker login $REGISTRY_URL -u $DOCKER_USERNAME --password-stdin
+            
+            # Push the Docker image to the registry
+            docker push $IMAGE:${CIRCLE_SHA1}
+            docker push $IMAGE:latest
+      - run:
+          name: Notify URL update
+          command: |
+            sleep 5
+            if [ ! -z "$APP_LIVE_URL" ]; then
+              echo "Your app is updated, URL: $APP_LIVE_URL"
+            fi
+
+workflows:
+  version: 2
+  build-test-publish:
+    jobs:
+      - build-test-publish:
+          context: localozedev-test-application-context
+          filters:
+            branches:
+              only: master
