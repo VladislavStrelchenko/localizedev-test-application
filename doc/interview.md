@@ -16,4 +16,6 @@ Best practices skipped due to time constraints:
 * The Terragrunt project should be moved to a separate repository; for this task, it is left in the .terragrunt directory.
 * The code and image should be scanned using a security scanner such as SonarQube or Snyk.
 
-Additionally, the Terragrunt project can be run in CircleCI to avoid manual infrastructure setup.
+## Additionally 
+* The Terragrunt project can be run in CircleCI to avoid manual infrastructure setup.
+* The Terragrunt project can contain the CircleCI project and Env variable creation by the module https://registry.terraform.io/providers/kelvintaywl/circleci/latest/docs
